@@ -1,3 +1,4 @@
 certs/
 tmp/
+localdata/
 *_templ.go
