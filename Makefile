@@ -1,5 +1,12 @@
 .PHONY: dev certs
 
+setup:
+	go mod tidy
+	go mod download
+	go install github.com/air-verse/air@latest
+	go install github.com/a-h/templ/cmd/templ@latest
+	brew install mkcert
+
 dev: db
 	air
 
