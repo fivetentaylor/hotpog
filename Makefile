@@ -8,7 +8,7 @@ setup:
 	brew install mkcert
 
 dev: db
-	air
+	DOTENV=.dev.env air
 
 certs:
 	mkdir -p certs
@@ -16,7 +16,10 @@ certs:
 	cd certs && mkcert localhost "*.localhost"
 
 db:
-	docker compose up db
+	docker compose up db -d
+
+db_down:
+	docker compose down db
 
 test_db:
 	docker compose up test_db
