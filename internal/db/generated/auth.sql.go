@@ -7,11 +7,63 @@ package db
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/google/uuid"
 )
 
+const createSession = `-- name: CreateSession :one
+INSERT INTO sessions (user_id, expires_at)
+VALUES ($1, NOW() + interval '30 days')
+RETURNING id
+`
+
+func (q *Queries) CreateSession(ctx context.Context, userID uuid.UUID) (uuid.UUID, error) {
+	row := q.db.QueryRowContext(ctx, createSession, userID)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createUser = `-- name: CreateUser :one
+INSERT INTO users (email, password_hash)
+VALUES ($1, $2)
+RETURNING id
+`
+
+type CreateUserParams struct {
+	Email        string
+	PasswordHash sql.NullString
+}
+
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (uuid.UUID, error) {
+	row := q.db.QueryRowContext(ctx, createUser, arg.Email, arg.PasswordHash)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const getUserByEmail = `-- name: GetUserByEmail :one
+SELECT id, password_hash, email_verified_at
+FROM users
+WHERE email = $1
+`
+
+type GetUserByEmailRow struct {
+	ID              uuid.UUID
+	PasswordHash    sql.NullString
+	EmailVerifiedAt sql.NullTime
+}
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error) {
+	row := q.db.QueryRowContext(ctx, getUserByEmail, email)
+	var i GetUserByEmailRow
+	err := row.Scan(&i.ID, &i.PasswordHash, &i.EmailVerifiedAt)
+	return i, err
+}
+
 const getValidSession = `-- name: GetValidSession :one
+
 SELECT s.id, s.user_id, u.email 
 FROM sessions s
 JOIN users u ON s.user_id = u.id

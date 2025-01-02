@@ -1,0 +1,48 @@
+// templates/components/auth.templ
+package components
+
+templ RegisterForm() {
+	<form hx-post="/register" hx-target="closest form" class="space-y-4">
+		<div>
+			<label for="email">Email</label>
+			<input type="email" name="email" required/>
+		</div>
+		<div>
+			<label for="password">Password</label>
+			<input type="password" name="password" required/>
+		</div>
+		<button type="submit">Create Account</button>
+	</form>
+}
+
+templ RegisterPage() {
+	@Layout("Register") {
+		<div class="max-w-md mx-auto">
+			<h1>Create an Account</h1>
+			@RegisterForm()
+		</div>
+	}
+}
+
+templ LoginForm() {
+	<form hx-post="/login" hx-target="closest form" class="space-y-4">
+		<div>
+			<label for="email">Email</label>
+			<input type="email" name="email" required/>
+		</div>
+		<div>
+			<label for="password">Password</label>
+			<input type="password" name="password" required/>
+		</div>
+		<button type="submit">Log In</button>
+	</form>
+}
+
+templ LoginPage() {
+	@Layout("Log In") {
+		<div class="max-w-md mx-auto">
+			<h1>Log In</h1>
+			@LoginForm()
+		</div>
+	}
+}

@@ -12,7 +12,7 @@ setup:
 	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 	brew install mkcert
 
-dev: db
+dev: db_up
 	DOTENV=.dev.env air
 
 certs:

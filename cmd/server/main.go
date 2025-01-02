@@ -4,7 +4,6 @@ package main
 import (
 	"embed"
 	"fmt"
-	"io/fs"
 	"log"
 	"net/http"
 
@@ -21,18 +20,16 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("config: %+v\n", c)
-
-	r := router.NewRouter()
+	r := router.NewRouter(c)
 
 	// Strip "static" prefix for serving
-	staticFS, err := fs.Sub(static, "static")
+	/*staticFS, err := fs.Sub(static, "static")
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Serve static files
-	r.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
+	r.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))*/
 
 	fmt.Printf("Server starting on %s\n", c.Port)
 	/*
