@@ -2,7 +2,7 @@
 package components
 
 templ RegisterForm() {
-	<form hx-post="/register" hx-target="closest form" class="space-y-4">
+	<form action="/register" method="post" class="space-y-4">
 		<div>
 			<label for="email">Email</label>
 			<input type="email" name="email" required/>
@@ -25,7 +25,7 @@ templ RegisterPage() {
 }
 
 templ LoginForm() {
-	<form hx-post="/login" hx-target="closest form" class="space-y-4">
+	<form action="/login" method="post" class="space-y-4">
 		<div>
 			<label for="email">Email</label>
 			<input type="email" name="email" required/>

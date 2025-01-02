@@ -23,6 +23,9 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	email := r.FormValue("email")
 	password := r.FormValue("password")
 
+	fmt.Printf("email: %s\n", email)
+	fmt.Printf("password: %s\n", password)
+
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		http.Error(w, "Server error", 500)
@@ -37,8 +40,9 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Email already taken", 400)
 		return
 	}
+	fmt.Printf("userID: %s\n", userID)
 
-	fmt.Printf("Created user with ID: %s\n", userID)
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
 func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
@@ -76,6 +80,8 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   60 * 60 * 24 * 30, // 30 days
 	})
+
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func (h *Handler) RequireAuth(next http.Handler) http.Handler {
