@@ -1,7 +1,7 @@
 include .dev.env
 export
 
-.PHONY: setup dev certs db_up db_down test_db gen_templ gen_sqlc gen migrate_up migrate_down migrate_create
+.PHONY: setup dev certs db_up db_down test_db gen_templ gen_sqlc gen_tailwind gen migrate_up migrate_down migrate_create
 
 setup:
 	go mod tidy
@@ -35,7 +35,10 @@ gen_templ:
 gen_sqlc:
 	sqlc generate -f internal/db/sqlc.yaml
 
-gen: gen_templ gen_sqlc
+gen_tailwind:
+	npx tailwindcss -i ./internal/router/static/input.css -o ./internal/router/static/output.css
+
+gen: gen_templ gen_sqlc gen_tailwind
 
 migrate_up:
 	migrate -database "${DATABASE_URL}" -path internal/db/migrations up

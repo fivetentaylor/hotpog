@@ -14,6 +14,11 @@ import (
 )
 
 func (h *Handler) RegisterPage(w http.ResponseWriter, r *http.Request) {
+	if h.isLoggedIn(r) {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
 	component := components.RegisterPage()
 	component.Render(r.Context(), w)
 }
@@ -22,9 +27,6 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	email := r.FormValue("email")
 	password := r.FormValue("password")
-
-	fmt.Printf("email: %s\n", email)
-	fmt.Printf("password: %s\n", password)
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -46,6 +48,11 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
+	if h.isLoggedIn(r) {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
 	component := components.LoginPage()
 	component.Render(r.Context(), w)
 }
@@ -80,8 +87,25 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   60 * 60 * 24 * 30, // 30 days
 	})
+}
 
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+func (h *Handler) isLoggedIn(r *http.Request) bool {
+	cookie, err := r.Cookie("session_id")
+	if err != nil {
+		return false
+	}
+
+	sessionID, err := uuid.Parse(cookie.Value)
+	if err != nil {
+		return false
+	}
+
+	_, err = h.queries.GetValidSession(r.Context(), sessionID)
+	if err != nil {
+		return false
+	}
+
+	return true
 }
 
 func (h *Handler) RequireAuth(next http.Handler) http.Handler {

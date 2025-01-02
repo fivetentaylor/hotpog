@@ -2,7 +2,6 @@
 package main
 
 import (
-	"embed"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,9 +10,6 @@ import (
 	"github.com/fivetentaylor/hotpog/internal/router"
 )
 
-//go:embed static
-var static embed.FS
-
 func main() {
 	c, err := config.NewConfig()
 	if err != nil {
@@ -21,15 +17,6 @@ func main() {
 	}
 
 	r := router.NewRouter(c)
-
-	// Strip "static" prefix for serving
-	/*staticFS, err := fs.Sub(static, "static")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Serve static files
-	r.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))*/
 
 	fmt.Printf("Server starting on %s\n", c.Port)
 	/*

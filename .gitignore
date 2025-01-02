@@ -1,4 +1,5 @@
 certs/
 tmp/
 localdata/
+node_modules/
 *_templ.go
