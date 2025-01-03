@@ -13,9 +13,22 @@ import (
 )
 
 const createSession = `-- name: CreateSession :one
-INSERT INTO sessions (user_id, expires_at)
-VALUES ($1, NOW() + interval '30 days')
-RETURNING id
+WITH new_session AS (
+  INSERT INTO sessions (user_id, expires_at)
+  SELECT $1, NOW() + interval '30 days'
+  WHERE NOT EXISTS (
+    SELECT 1 FROM sessions 
+    WHERE user_id = $1 
+    AND expires_at > NOW()
+  )
+  RETURNING id
+)
+SELECT id FROM new_session
+UNION ALL
+SELECT id FROM sessions 
+WHERE user_id = $1 
+AND expires_at > NOW()
+LIMIT 1
 `
 
 func (q *Queries) CreateSession(ctx context.Context, userID uuid.UUID) (uuid.UUID, error) {
@@ -41,6 +54,16 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (uuid.UU
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
+}
+
+const deleteSession = `-- name: DeleteSession :exec
+DELETE FROM sessions
+WHERE id = $1
+`
+
+func (q *Queries) DeleteSession(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteSession, id)
+	return err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one

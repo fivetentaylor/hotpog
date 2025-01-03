@@ -21,6 +21,7 @@ func NewRouter(config *config.Config) *http.ServeMux {
 	mux.HandleFunc("POST /register", handler.Register)
 	mux.HandleFunc("GET /login", handler.LoginPage)
 	mux.HandleFunc("POST /login", handler.Login)
+	mux.HandleFunc("GET /logout", handler.Logout)
 
 	// Strip "static" prefix for serving
 	staticFS, err := fs.Sub(static, "static")

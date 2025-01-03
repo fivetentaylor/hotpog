@@ -87,6 +87,8 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   60 * 60 * 24 * 30, // 30 days
 	})
+
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func (h *Handler) isLoggedIn(r *http.Request) bool {
@@ -132,4 +134,35 @@ func (h *Handler) RequireAuth(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), "user_id", session.UserID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("session_id")
+	if err != nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	sessionID, err := uuid.Parse(cookie.Value)
+	if err != nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	err = h.queries.DeleteSession(r.Context(), sessionID)
+	if err != nil {
+		http.Error(w, "Server error", 500)
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session_id",
+		Value:    "",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   -1,
+	})
+
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
