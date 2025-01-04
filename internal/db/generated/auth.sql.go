@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -56,6 +57,37 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (uuid.UU
 	return id, err
 }
 
+const createVerification = `-- name: CreateVerification :one
+INSERT INTO verifications (
+    token,
+    expires_at,
+    user_id
+) VALUES (
+    $1,
+    $2,
+    $3
+) RETURNING token, created_at, expires_at, user_id, used_at
+`
+
+type CreateVerificationParams struct {
+	Token     string
+	ExpiresAt time.Time
+	UserID    uuid.UUID
+}
+
+func (q *Queries) CreateVerification(ctx context.Context, arg CreateVerificationParams) (Verification, error) {
+	row := q.db.QueryRowContext(ctx, createVerification, arg.Token, arg.ExpiresAt, arg.UserID)
+	var i Verification
+	err := row.Scan(
+		&i.Token,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.UserID,
+		&i.UsedAt,
+	)
+	return i, err
+}
+
 const deleteSession = `-- name: DeleteSession :exec
 DELETE FROM sessions
 WHERE id = $1
@@ -64,6 +96,28 @@ WHERE id = $1
 func (q *Queries) DeleteSession(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.ExecContext(ctx, deleteSession, id)
 	return err
+}
+
+const getAndUseVerification = `-- name: GetAndUseVerification :one
+UPDATE verifications 
+SET used_at = CURRENT_TIMESTAMP
+WHERE token = $1 
+    AND used_at IS NULL 
+    AND expires_at > CURRENT_TIMESTAMP
+RETURNING token, created_at, expires_at, user_id, used_at
+`
+
+func (q *Queries) GetAndUseVerification(ctx context.Context, token string) (Verification, error) {
+	row := q.db.QueryRowContext(ctx, getAndUseVerification, token)
+	var i Verification
+	err := row.Scan(
+		&i.Token,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.UserID,
+		&i.UsedAt,
+	)
+	return i, err
 }
 
 const getUser = `-- name: GetUser :one

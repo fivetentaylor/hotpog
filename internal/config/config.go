@@ -9,6 +9,15 @@ import (
 	"github.com/joho/godotenv"
 )
 
+type Config struct {
+	Domain    string `env:"DOMAIN" default:"localhost"`
+	Port      string `env:"PORT" default:"3333"`
+	DBUrl     string `env:"DATABASE_URL" required:"true"`
+	CertPath  string `env:"CERT_PATH" required:"true"`
+	KeyPath   string `env:"KEY_PATH" required:"true"`
+	TestEmpty string `env:"TEST_EMPTY"`
+}
+
 var config *Config
 
 func Get() *Config {
@@ -68,14 +77,6 @@ func init() {
 	if configErr != nil {
 		panic(configErr)
 	}
-}
-
-type Config struct {
-	Port      string `env:"PORT" default:"3333"`
-	DBUrl     string `env:"DATABASE_URL" required:"true"`
-	CertPath  string `env:"CERT_PATH" required:"true"`
-	KeyPath   string `env:"KEY_PATH" required:"true"`
-	TestEmpty string `env:"TEST_EMPTY"`
 }
 
 func loadConfig() (*Config, error) {

@@ -49,3 +49,22 @@ WHERE id = $1;
 UPDATE users
 SET email_verified_at = NOW()
 WHERE id = $1;
+
+-- name: CreateVerification :one
+INSERT INTO verifications (
+    token,
+    expires_at,
+    user_id
+) VALUES (
+    $1,
+    $2,
+    $3
+) RETURNING *;
+
+-- name: GetAndUseVerification :one
+UPDATE verifications 
+SET used_at = CURRENT_TIMESTAMP
+WHERE token = $1 
+    AND used_at IS NULL 
+    AND expires_at > CURRENT_TIMESTAMP
+RETURNING *;

@@ -28,6 +28,8 @@ func NewRouter(config *config.Config) *http.ServeMux {
 	mux.HandleFunc("GET /login", handler.LoginPage)
 	mux.HandleFunc("POST /login", handler.Login)
 	mux.HandleFunc("GET /logout", handler.Logout)
+	mux.HandleFunc("GET /verify", handler.VerifyUserEmail)
+	mux.Handle("POST /verify", handler.RequireAuth(http.HandlerFunc(handler.VerifyUserEmail)))
 
 	// Serve static files
 	staticFS, err := fs.Sub(static, "static")

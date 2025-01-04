@@ -11,19 +11,17 @@ import (
 	"testing"
 
 	"github.com/fivetentaylor/hotpog/internal/db"
-	sqlc "github.com/fivetentaylor/hotpog/internal/db/generated"
 	"github.com/fivetentaylor/hotpog/internal/handlers"
 	"github.com/fivetentaylor/hotpog/internal/testutils"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLogin(t *testing.T) {
 	testutils.RunWithTestDB(t, func(db *db.DB) {
 		h := handlers.NewHandler(db)
 
-		db.Queries.CreateUser(context.Background(), sqlc.CreateUserParams{
-			Email:        "test@example.com",
-			PasswordHash: "test",
-		})
+		_, err := db.CreateUser(context.Background(), "test@example.com", "test")
+		require.NoError(t, err)
 
 		// Create form data
 		formData := url.Values{}

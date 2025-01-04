@@ -3,11 +3,14 @@ package handlers
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/fivetentaylor/hotpog/internal/db"
 	sqlc "github.com/fivetentaylor/hotpog/internal/db/generated"
 	"github.com/fivetentaylor/hotpog/internal/templ/components"
 	"github.com/google/uuid"
@@ -62,26 +65,20 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	email := r.FormValue("email")
 	password := r.FormValue("password")
 
-	user, err := h.DB.Queries.GetUserByEmail(ctx, email)
-	if user.PasswordHash.Valid == false {
-		http.Error(w, "Invalid credentials", 401)
-		return
-	}
-
-	if err != nil || bcrypt.CompareHashAndPassword([]byte(user.PasswordHash.String), []byte(password)) != nil {
-		http.Error(w, "Invalid credentials", 401)
-		return
-	}
-
-	sessionID, err := h.DB.Queries.CreateSession(ctx, user.ID)
+	sessionID, err := h.DB.Login(ctx, email, password)
 	if err != nil {
-		http.Error(w, "Server error", 500)
+		if errors.As(err, &db.ErrorUnverifiedEmail{}) {
+			http.Redirect(w, r, fmt.Sprintf("/verify?email=%s", url.QueryEscape(email)), http.StatusSeeOther)
+			return
+		}
+
+		http.Error(w, "Invalid credentials", 400)
 		return
 	}
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session_id",
-		Value:    sessionID.String(),
+		Value:    sessionID,
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
@@ -165,4 +162,34 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	})
 
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
+}
+
+func (h *Handler) VerifyUserEmail(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Get token from URL query params
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		component := components.VerifyEmailPage("test")
+		component.Render(ctx, w)
+
+		return
+	}
+
+	sessionID, err := h.DB.VerifyUserEmail(ctx, token)
+	if err != nil {
+		http.Error(w, "Invalid or expired verification token", http.StatusBadRequest)
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session_id",
+		Value:    sessionID,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   60 * 60 * 24 * 30, // 30 days
+	})
+
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }

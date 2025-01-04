@@ -29,3 +29,11 @@ type User struct {
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }
+
+type Verification struct {
+	Token     string
+	CreatedAt time.Time
+	ExpiresAt time.Time
+	UserID    uuid.UUID
+	UsedAt    sql.NullTime
+}
