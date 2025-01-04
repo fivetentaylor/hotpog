@@ -20,13 +20,16 @@ func TestLogin(t *testing.T) {
 	testutils.RunWithTestDB(t, func(db *db.DB) {
 		h := handlers.NewHandler(db)
 
-		_, err := db.CreateUser(context.Background(), "test@example.com", "test")
+		userEmail := "test@example.com"
+		userPassword := "testpassword123"
+
+		_, err := db.CreateUser(context.Background(), userEmail, userPassword)
 		require.NoError(t, err)
 
 		// Create form data
 		formData := url.Values{}
-		formData.Set("email", "test@example.com")
-		formData.Set("password", "testpassword123")
+		formData.Set("email", userEmail)
+		formData.Set("password", userPassword)
 
 		// Create a new HTTP POST request with form data
 		req := httptest.NewRequest(
