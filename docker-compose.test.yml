@@ -1,11 +1,11 @@
 services:
-  db:
+  test_db:
     image: postgres:16
     environment:
       POSTGRES_DB: hotpog
       POSTGRES_USER: hotpog
       POSTGRES_PASSWORD: hotpog
     ports:
-      - "5432:5432"
-    volumes:
-      - ./localdata/postgres:/var/lib/postgresql/data
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data

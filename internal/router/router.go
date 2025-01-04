@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/fivetentaylor/hotpog/internal/config"
+	"github.com/fivetentaylor/hotpog/internal/db"
 	"github.com/fivetentaylor/hotpog/internal/handlers"
 )
 
@@ -14,7 +15,12 @@ var static embed.FS
 
 func NewRouter(config *config.Config) *http.ServeMux {
 	mux := http.NewServeMux()
-	handler := handlers.NewHandler(config.DBUrl)
+	db, err := db.New(config.DBUrl)
+	if err != nil {
+		panic(err)
+	}
+
+	handler := handlers.NewHandler(db)
 
 	// routes
 	mux.HandleFunc("GET /register", handler.RegisterPage)
@@ -23,15 +29,15 @@ func NewRouter(config *config.Config) *http.ServeMux {
 	mux.HandleFunc("POST /login", handler.Login)
 	mux.HandleFunc("GET /logout", handler.Logout)
 
-	// Strip "static" prefix for serving
+	// Serve static files
 	staticFS, err := fs.Sub(static, "static")
 	if err != nil {
 		panic(err)
 	}
 
-	// Serve static files
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
 
+	// Home route
 	mux.Handle("GET /", handler.RequireAuth(http.HandlerFunc(handler.Home)))
 
 	return mux

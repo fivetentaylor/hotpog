@@ -1,7 +1,7 @@
 include .dev.env
 export
 
-.PHONY: setup dev certs db_up db_down test_db gen_templ gen_sqlc gen_tailwind gen migrate_up migrate_down migrate_create
+.PHONY: setup dev certs dev_up dev_down test_up test_down gen_templ gen_sqlc gen_tailwind gen migrate_up migrate_down migrate_create
 
 setup:
 	go mod tidy
@@ -12,7 +12,7 @@ setup:
 	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 	brew install mkcert
 
-dev: db_up
+dev: dev_up
 	DOTENV=.dev.env air
 
 certs:
@@ -20,14 +20,17 @@ certs:
 	cd certs && mkcert -install
 	cd certs && mkcert localhost "*.localhost"
 
-db_up:
-	docker compose up db -d
+dev_up:
+	docker compose up -d
 
-db_down:
-	docker compose down db
+dev_down:
+	docker compose down
 
-test_db:
-	docker compose up test_db
+test_up:
+	docker compose -f docker-compose.test.yml up -d
+
+test_down:
+	docker compose -f docker-compose.test.yml down
 
 gen_templ:
 	templ generate

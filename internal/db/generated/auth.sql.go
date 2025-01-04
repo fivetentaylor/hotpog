@@ -66,6 +66,25 @@ func (q *Queries) DeleteSession(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const getUser = `-- name: GetUser :one
+SELECT id, password_hash, email_verified_at
+  FROM users
+WHERE id = $1
+`
+
+type GetUserRow struct {
+	ID              uuid.UUID
+	PasswordHash    sql.NullString
+	EmailVerifiedAt sql.NullTime
+}
+
+func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (GetUserRow, error) {
+	row := q.db.QueryRowContext(ctx, getUser, id)
+	var i GetUserRow
+	err := row.Scan(&i.ID, &i.PasswordHash, &i.EmailVerifiedAt)
+	return i, err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, password_hash, email_verified_at
 FROM users
@@ -107,4 +126,15 @@ func (q *Queries) GetValidSession(ctx context.Context, id uuid.UUID) (GetValidSe
 	var i GetValidSessionRow
 	err := row.Scan(&i.ID, &i.UserID, &i.Email)
 	return i, err
+}
+
+const verifyUserEmail = `-- name: VerifyUserEmail :exec
+UPDATE users
+SET email_verified_at = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) VerifyUserEmail(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, verifyUserEmail, id)
+	return err
 }

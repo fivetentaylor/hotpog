@@ -11,11 +11,7 @@ import (
 )
 
 func main() {
-	c, err := config.NewConfig()
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	c := config.Get()
 	r := router.NewRouter(c)
 
 	fmt.Printf("Server starting on %s\n", c.Port)

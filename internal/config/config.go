@@ -3,19 +3,71 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 
 	"github.com/joho/godotenv"
 )
 
-func NewConfig() (*Config, error) {
-	if env := os.Getenv("DOTENV"); env != "" {
-		godotenv.Load(env)
-	} else {
-		godotenv.Load()
+var config *Config
+
+func Get() *Config {
+	return config
+}
+
+func findEnvFile(envFile string) (string, error) {
+	// If it's an absolute path, check it directly
+	if filepath.IsAbs(envFile) {
+		if _, err := os.Stat(envFile); err != nil {
+			return "", fmt.Errorf("env file not found at absolute path: %s", envFile)
+		}
+		return envFile, nil
 	}
 
-	return loadConfig()
+	// For relative paths, search up the directory tree
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	for {
+		envPath := filepath.Join(dir, envFile)
+		if _, err := os.Stat(envPath); err == nil {
+			return envPath, nil
+		}
+
+		// Get parent directory
+		parent := filepath.Dir(dir)
+		// If we're already at the root, stop searching
+		if parent == dir {
+			return "", fmt.Errorf("env file %s not found in directory tree", envFile)
+		}
+		dir = parent
+	}
+}
+
+func init() {
+	envFile := ".env"
+
+	if env := os.Getenv("DOTENV"); env != "" {
+		envFile = env
+	}
+
+	envPath, err := findEnvFile(envFile)
+	if err != nil {
+		panic(fmt.Sprintf("Error: %v\n", err))
+	} else {
+		fmt.Printf("Loading env from: %s\n", envPath)
+		if err := godotenv.Load(envPath); err != nil {
+			panic(fmt.Sprintf("Error loading env file: %v\n", err))
+		}
+	}
+
+	var configErr error
+	config, configErr = loadConfig()
+	if configErr != nil {
+		panic(configErr)
+	}
 }
 
 type Config struct {

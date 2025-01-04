@@ -34,7 +34,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := h.queries.CreateUser(ctx, sqlc.CreateUserParams{
+	userID, err := h.DB.Queries.CreateUser(ctx, sqlc.CreateUserParams{
 		Email:        email,
 		PasswordHash: sql.NullString{String: string(hash), Valid: true},
 	})
@@ -62,7 +62,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	email := r.FormValue("email")
 	password := r.FormValue("password")
 
-	user, err := h.queries.GetUserByEmail(ctx, email)
+	user, err := h.DB.Queries.GetUserByEmail(ctx, email)
 	if user.PasswordHash.Valid == false {
 		http.Error(w, "Invalid credentials", 401)
 		return
@@ -73,7 +73,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionID, err := h.queries.CreateSession(ctx, user.ID)
+	sessionID, err := h.DB.Queries.CreateSession(ctx, user.ID)
 	if err != nil {
 		http.Error(w, "Server error", 500)
 		return
@@ -102,7 +102,7 @@ func (h *Handler) isLoggedIn(r *http.Request) bool {
 		return false
 	}
 
-	_, err = h.queries.GetValidSession(r.Context(), sessionID)
+	_, err = h.DB.Queries.GetValidSession(r.Context(), sessionID)
 	if err != nil {
 		return false
 	}
@@ -124,7 +124,7 @@ func (h *Handler) RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		session, err := h.queries.GetValidSession(r.Context(), sessionID)
+		session, err := h.DB.Queries.GetValidSession(r.Context(), sessionID)
 		if err != nil {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
@@ -149,7 +149,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.queries.DeleteSession(r.Context(), sessionID)
+	err = h.DB.Queries.DeleteSession(r.Context(), sessionID)
 	if err != nil {
 		http.Error(w, "Server error", 500)
 		return

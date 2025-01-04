@@ -18,6 +18,11 @@ SELECT id, password_hash, email_verified_at
 FROM users
 WHERE email = $1;
 
+-- name: GetUser :one
+SELECT id, password_hash, email_verified_at
+  FROM users
+WHERE id = $1;
+
 -- name: CreateSession :one
 WITH new_session AS (
   INSERT INTO sessions (user_id, expires_at)
@@ -38,4 +43,9 @@ LIMIT 1;
 
 -- name: DeleteSession :exec
 DELETE FROM sessions
+WHERE id = $1;
+
+-- name: VerifyUserEmail :exec
+UPDATE users
+SET email_verified_at = NOW()
 WHERE id = $1;
