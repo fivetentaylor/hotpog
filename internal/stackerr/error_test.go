@@ -5,7 +5,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/teamreviso/code/pkg/stackerr"
+
+	"github.com/fivetentaylor/hotpog/internal/stackerr"
 )
 
 func TestNew(t *testing.T) {

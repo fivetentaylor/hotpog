@@ -16,10 +16,25 @@ import (
 	"github.com/google/uuid"
 )
 
+type ErrorEmailExists struct{}
+
+func (e ErrorEmailExists) Error() string {
+	return "User email already exists"
+}
+
 func (db *DB) CreateUser(ctx context.Context, email, password string) (userID string, err error) {
+	userExists, err := db.Queries.UserEmailExists(ctx, email)
+	if err != nil {
+		return "", stackerr.Wrap(err)
+	}
+
+	if userExists {
+		return "", stackerr.Wrap(ErrorEmailExists{})
+	}
+
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return "", err
+		return "", stackerr.Wrap(err)
 	}
 
 	uid, err := db.Queries.CreateUser(ctx, sqlc.CreateUserParams{
@@ -27,8 +42,16 @@ func (db *DB) CreateUser(ctx context.Context, email, password string) (userID st
 		PasswordHash: sql.NullString{String: string(hash), Valid: true},
 	})
 	if err != nil {
-		return "", err
+		return "", stackerr.Wrap(err)
 	}
+
+	url, err := db._createVerificationURL(ctx, uid)
+	if err != nil {
+		return "", stackerr.Wrap(err)
+	}
+
+	// Send the email or text message here, probably async?
+	fmt.Printf("Verification URL: %s\n", url)
 
 	return uid.String(), nil
 }
@@ -72,6 +95,28 @@ func (db *DB) Login(ctx context.Context, email, password string) (sessionID stri
 
 	sessionID = sid.String()
 	return sessionID, nil
+}
+
+func (db *DB) Register(ctx context.Context, email, password string) (userID string, err error) {
+	userID, err = db.CreateUser(ctx, email, password)
+	if err != nil {
+		return "", stackerr.Wrap(err)
+	}
+
+	uid, err := uuid.Parse(userID)
+	if err != nil {
+		return "", stackerr.Wrap(err)
+	}
+
+	url, err := db._createVerificationURL(ctx, uid)
+	if err != nil {
+		return "", stackerr.Wrap(err)
+	}
+
+	// Send the email or text message here, probably async?
+	fmt.Printf("Verification URL: %s\n", url)
+
+	return userID, nil
 }
 
 func (db *DB) DeleteSession(ctx context.Context, sessionID string) error {

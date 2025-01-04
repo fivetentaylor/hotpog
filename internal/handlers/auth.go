@@ -2,16 +2,12 @@ package handlers
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/fivetentaylor/hotpog/internal/db"
-	sqlc "github.com/fivetentaylor/hotpog/internal/db/generated"
 	"github.com/fivetentaylor/hotpog/internal/templ/components"
 	"github.com/google/uuid"
 )
@@ -31,23 +27,15 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	email := r.FormValue("email")
 	password := r.FormValue("password")
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		http.Error(w, "Server error", 500)
-		return
-	}
-
-	userID, err := h.DB.Queries.CreateUser(ctx, sqlc.CreateUserParams{
-		Email:        email,
-		PasswordHash: sql.NullString{String: string(hash), Valid: true},
-	})
+	userID, err := h.DB.CreateUser(ctx, email, password)
 	if err != nil {
 		http.Error(w, "Email already taken", 400)
 		return
 	}
+
 	fmt.Printf("userID: %s\n", userID)
 
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/verify?email=%s", url.QueryEscape(email)), http.StatusSeeOther)
 }
 
 func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {

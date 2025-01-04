@@ -68,3 +68,9 @@ WHERE token = $1
     AND used_at IS NULL 
     AND expires_at > CURRENT_TIMESTAMP
 RETURNING *;
+
+-- name: UserEmailExists :one
+SELECT EXISTS (
+    SELECT 1 FROM users
+    WHERE email = $1
+);
