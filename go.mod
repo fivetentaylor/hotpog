@@ -2,7 +2,7 @@ module github.com/fivetentaylor/hotpog
 
 go 1.23.1
 
-require github.com/a-h/templ v0.2.793
+require github.com/a-h/templ v0.3.819
 
 require (
 	github.com/golang-migrate/migrate/v4 v4.18.1
