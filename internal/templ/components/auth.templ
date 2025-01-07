@@ -2,7 +2,13 @@
 package components
 
 templ RegisterForm() {
-	<form action="/register" method="post" class="bg-white p-8 rounded-lg shadow space-y-6">
+	<form
+		id="register-form"
+		hx-post="/register"
+		hx-target="#auth-form-container"
+		hx-swap="innerHTML"
+		class="bg-white p-8 rounded-lg shadow space-y-6"
+	>
 		<div>
 			<label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email</label>
 			<input
@@ -43,7 +49,13 @@ templ RegisterPage() {
 }
 
 templ LoginForm() {
-	<form action="/login" method="post" class="bg-white p-8 rounded-lg shadow space-y-6">
+	<form
+		id="login-form"
+		hx-post="/login"
+		hx-target="#auth-form-container"
+		hx-swap="innerHTML"
+		class="bg-white p-8 rounded-lg shadow space-y-6"
+	>
 		<div>
 			<label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email</label>
 			<input
@@ -72,12 +84,66 @@ templ LoginForm() {
 	</form>
 }
 
-templ LoginPage() {
-	@Layout("Log In") {
+templ AuthTabs(formType string) {
+	<div class="flex justify-center gap-4 mb-8">
+		if formType == "login" {
+			<button
+				hx-get="/auth?form=login"
+				hx-target="#auth-form-content"
+				hx-swap="innerHTML"
+				class="text-xl font-bold px-4 py-2 rounded bg-blue-600 text-white"
+			>
+				Log In
+			</button>
+			<button
+				hx-get="/auth?form=register"
+				hx-target="#auth-form-content"
+				hx-swap="innerHTML"
+				class="text-xl font-bold px-4 py-2 rounded text-gray-700 hover:bg-gray-100"
+			>
+				Register
+			</button>
+		} else {
+			<button
+				hx-get="/auth?form=login"
+				hx-target="#auth-form-content"
+				hx-swap="innerHTML"
+				class="text-xl font-bold px-4 py-2 rounded text-gray-700 hover:bg-gray-100"
+			>
+				Log In
+			</button>
+			<button
+				hx-get="/auth?form=register"
+				hx-target="#auth-form-content"
+				hx-swap="innerHTML"
+				class="text-xl font-bold px-4 py-2 rounded bg-blue-600 text-white"
+			>
+				Register
+			</button>
+		}
+	</div>
+}
+
+templ AuthFormContent(formType string) {
+	if formType == "login" {
+		<h1 class="text-3xl font-bold text-center text-gray-900 mb-8">Log In</h1>
+		@LoginForm()
+	} else {
+		<h1 class="text-3xl font-bold text-center text-gray-900 mb-8">Create an Account</h1>
+		@RegisterForm()
+	}
+}
+
+templ AuthPage(formType string) {
+	@Layout("Auth") {
 		<div class="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
 			<div class="max-w-md mx-auto">
-				<h1 class="text-3xl font-bold text-center text-gray-900 mb-8">Log In</h1>
-				@LoginForm()
+				@AuthTabs(formType)
+				<div id="auth-form-container">
+					<div id="auth-form-content">
+						@AuthFormContent(formType)
+					</div>
+				</div>
 			</div>
 		</div>
 	}

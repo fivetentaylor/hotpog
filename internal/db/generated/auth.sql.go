@@ -196,6 +196,20 @@ func (q *Queries) UserEmailExists(ctx context.Context, email string) (bool, erro
 	return exists, err
 }
 
+const userSessionExists = `-- name: UserSessionExists :one
+SELECT EXISTS (
+    SELECT 1 FROM sessions
+    WHERE id = $1
+)
+`
+
+func (q *Queries) UserSessionExists(ctx context.Context, id uuid.UUID) (bool, error) {
+	row := q.db.QueryRowContext(ctx, userSessionExists, id)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const verifyUserEmail = `-- name: VerifyUserEmail :exec
 UPDATE users
 SET email_verified_at = NOW()

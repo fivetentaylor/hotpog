@@ -23,9 +23,8 @@ func NewRouter(config *config.Config) *http.ServeMux {
 	handler := handlers.NewHandler(db)
 
 	// routes
-	mux.HandleFunc("GET /register", handler.RegisterPage)
+	mux.HandleFunc("GET /auth", handler.AuthPage)
 	mux.HandleFunc("POST /register", handler.Register)
-	mux.HandleFunc("GET /login", handler.LoginPage)
 	mux.HandleFunc("POST /login", handler.Login)
 	mux.HandleFunc("GET /logout", handler.Logout)
 	mux.HandleFunc("GET /verify", handler.VerifyUserEmail)

@@ -74,3 +74,9 @@ SELECT EXISTS (
     SELECT 1 FROM users
     WHERE email = $1
 );
+
+-- name: UserSessionExists :one
+SELECT EXISTS (
+    SELECT 1 FROM sessions
+    WHERE id = $1
+);

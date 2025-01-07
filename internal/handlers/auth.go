@@ -12,14 +12,27 @@ import (
 	"github.com/google/uuid"
 )
 
-func (h *Handler) RegisterPage(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) AuthPage(w http.ResponseWriter, r *http.Request) {
 	if h.isLoggedIn(r) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
 
-	component := components.RegisterPage()
-	component.Render(r.Context(), w)
+	// Check if we should show login or register form
+	formType := r.URL.Query().Get("form")
+	if formType == "" {
+		formType = "login" // Default to login form
+	}
+
+	if r.Header.Get("HX-Request") == "true" {
+		// For HTMX requests, only render the form content
+		component := components.AuthFormContent(formType)
+		component.Render(r.Context(), w)
+	} else {
+		// For full page loads, render the entire page
+		component := components.AuthPage(formType)
+		component.Render(r.Context(), w)
+	}
 }
 
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
@@ -27,25 +40,27 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	email := r.FormValue("email")
 	password := r.FormValue("password")
 
-	userID, err := h.DB.CreateUser(ctx, email, password)
+	_, err := h.DB.CreateUser(ctx, email, password)
 	if err != nil {
-		http.Error(w, "Email already taken", 400)
+		if errors.As(err, &db.ErrorEmailExists{}) {
+			// Return HTMX response with error
+			w.Header().Set("HX-Retarget", "#register-form")
+			w.Header().Set("HX-Reswap", "innerHTML")
+			http.Error(w, "Email already taken", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "Server error", http.StatusInternalServerError)
 		return
 	}
 
-	fmt.Printf("userID: %s\n", userID)
+	// For HTMX requests, return a redirect header
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", fmt.Sprintf("/verify?email=%s", url.QueryEscape(email)))
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 
 	http.Redirect(w, r, fmt.Sprintf("/verify?email=%s", url.QueryEscape(email)), http.StatusSeeOther)
-}
-
-func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
-	if h.isLoggedIn(r) {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
-
-	component := components.LoginPage()
-	component.Render(r.Context(), w)
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
@@ -56,11 +71,20 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	sessionID, err := h.DB.Login(ctx, email, password)
 	if err != nil {
 		if errors.As(err, &db.ErrorUnverifiedEmail{}) {
+			// For HTMX requests, return a redirect header
+			if r.Header.Get("HX-Request") == "true" {
+				w.Header().Set("HX-Redirect", fmt.Sprintf("/verify?email=%s", url.QueryEscape(email)))
+				w.WriteHeader(http.StatusOK)
+				return
+			}
 			http.Redirect(w, r, fmt.Sprintf("/verify?email=%s", url.QueryEscape(email)), http.StatusSeeOther)
 			return
 		}
 
-		http.Error(w, "Invalid credentials", 400)
+		// Return HTMX response with error
+		w.Header().Set("HX-Retarget", "#login-form")
+		w.Header().Set("HX-Reswap", "innerHTML")
+		http.Error(w, "Invalid credentials", http.StatusBadRequest)
 		return
 	}
 
@@ -72,6 +96,13 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   60 * 60 * 24 * 30, // 30 days
 	})
+
+	// For HTMX requests, return a redirect header
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", "/")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
@@ -87,12 +118,12 @@ func (h *Handler) isLoggedIn(r *http.Request) bool {
 		return false
 	}
 
-	_, err = h.DB.Queries.GetValidSession(r.Context(), sessionID)
+	exists, err := h.DB.Queries.UserSessionExists(r.Context(), sessionID)
 	if err != nil {
 		return false
 	}
 
-	return true
+	return exists
 }
 
 func (h *Handler) RequireAuth(next http.Handler) http.Handler {
