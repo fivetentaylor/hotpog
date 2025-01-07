@@ -11,6 +11,14 @@ import (
 	"github.com/google/uuid"
 )
 
+type MagicLink struct {
+	Token     string
+	CreatedAt time.Time
+	ExpiresAt time.Time
+	UserID    uuid.UUID
+	UsedAt    sql.NullTime
+}
+
 type Session struct {
 	ID        uuid.UUID
 	UserID    uuid.UUID

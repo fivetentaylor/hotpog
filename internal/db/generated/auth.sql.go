@@ -13,6 +13,37 @@ import (
 	"github.com/google/uuid"
 )
 
+const createMagicLink = `-- name: CreateMagicLink :one
+INSERT INTO magic_links (
+    token,
+    expires_at,
+    user_id
+) VALUES (
+    $1,
+    $2,
+    $3
+) RETURNING token, created_at, expires_at, user_id, used_at
+`
+
+type CreateMagicLinkParams struct {
+	Token     string
+	ExpiresAt time.Time
+	UserID    uuid.UUID
+}
+
+func (q *Queries) CreateMagicLink(ctx context.Context, arg CreateMagicLinkParams) (MagicLink, error) {
+	row := q.db.QueryRowContext(ctx, createMagicLink, arg.Token, arg.ExpiresAt, arg.UserID)
+	var i MagicLink
+	err := row.Scan(
+		&i.Token,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.UserID,
+		&i.UsedAt,
+	)
+	return i, err
+}
+
 const createSession = `-- name: CreateSession :one
 WITH new_session AS (
   INSERT INTO sessions (user_id, expires_at)
@@ -96,6 +127,28 @@ WHERE id = $1
 func (q *Queries) DeleteSession(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.ExecContext(ctx, deleteSession, id)
 	return err
+}
+
+const getAndUseMagicLink = `-- name: GetAndUseMagicLink :one
+UPDATE magic_links 
+SET used_at = CURRENT_TIMESTAMP
+WHERE token = $1 
+    AND used_at IS NULL 
+    AND expires_at > CURRENT_TIMESTAMP
+RETURNING token, created_at, expires_at, user_id, used_at
+`
+
+func (q *Queries) GetAndUseMagicLink(ctx context.Context, token string) (MagicLink, error) {
+	row := q.db.QueryRowContext(ctx, getAndUseMagicLink, token)
+	var i MagicLink
+	err := row.Scan(
+		&i.Token,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.UserID,
+		&i.UsedAt,
+	)
+	return i, err
 }
 
 const getAndUseVerification = `-- name: GetAndUseVerification :one

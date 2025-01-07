@@ -80,3 +80,22 @@ SELECT EXISTS (
     SELECT 1 FROM sessions
     WHERE id = $1
 );
+
+-- name: CreateMagicLink :one
+INSERT INTO magic_links (
+    token,
+    expires_at,
+    user_id
+) VALUES (
+    $1,
+    $2,
+    $3
+) RETURNING *;
+
+-- name: GetAndUseMagicLink :one
+UPDATE magic_links 
+SET used_at = CURRENT_TIMESTAMP
+WHERE token = $1 
+    AND used_at IS NULL 
+    AND expires_at > CURRENT_TIMESTAMP
+RETURNING *;
