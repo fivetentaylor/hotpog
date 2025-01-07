@@ -6,14 +6,35 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/fivetentaylor/hotpog/internal/db"
+	sqlc "github.com/fivetentaylor/hotpog/internal/db/generated"
 	"github.com/fivetentaylor/hotpog/internal/templ/components"
 	"github.com/google/uuid"
 )
 
 func (h *Handler) AuthPage(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
+}
+
+func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
+	if h.IsLoggedIn(r) {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+	showPasswordLogin := r.URL.Query().Get("password") == "true"
+	component := components.AuthPage("login", showPasswordLogin)
+	component.Render(r.Context(), w)
+}
+
+func (h *Handler) RegisterPage(w http.ResponseWriter, r *http.Request) {
+	if h.IsLoggedIn(r) {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+	component := components.AuthPage("register", false)
+	component.Render(r.Context(), w)
 }
 
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
@@ -139,6 +160,33 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	})
 
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
+}
+
+func (h *Handler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	email := r.FormValue("email")
+
+	// Generate a magic link token
+	token := uuid.New().String()
+	expiresAt := time.Now().Add(15 * time.Minute) // Links expire after 15 minutes
+
+	_, err := h.DB.Queries.CreateMagicLink(ctx, sqlc.CreateMagicLinkParams{
+		Token:     token,
+		ExpiresAt: expiresAt,
+		UserID:    uuid.Nil,
+	})
+	if err != nil {
+		http.Error(w, "Failed to create magic link", http.StatusInternalServerError)
+		return
+	}
+
+	// Print the magic link to console (for now)
+	magicLink := fmt.Sprintf("http://localhost:3333/verify?token=%s", token)
+	fmt.Printf("Magic Link for %s: %s\n", email, magicLink)
+
+	// Show success message to user
+	component := components.VerifyEmailPage(email)
+	component.Render(ctx, w)
 }
 
 func (h *Handler) VerifyUserEmail(w http.ResponseWriter, r *http.Request) {
