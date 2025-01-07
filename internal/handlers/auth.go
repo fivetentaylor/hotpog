@@ -13,26 +13,7 @@ import (
 )
 
 func (h *Handler) AuthPage(w http.ResponseWriter, r *http.Request) {
-	if h.isLoggedIn(r) {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
-
-	// Check if we should show login or register form
-	formType := r.URL.Query().Get("form")
-	if formType == "" {
-		formType = "login" // Default to login form
-	}
-
-	if r.Header.Get("HX-Request") == "true" {
-		// For HTMX requests, only render the form content
-		component := components.AuthFormContent(formType)
-		component.Render(r.Context(), w)
-	} else {
-		// For full page loads, render the entire page
-		component := components.AuthPage(formType)
-		component.Render(r.Context(), w)
-	}
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
@@ -53,13 +34,6 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// For HTMX requests, return a redirect header
-	if r.Header.Get("HX-Request") == "true" {
-		w.Header().Set("HX-Redirect", fmt.Sprintf("/verify?email=%s", url.QueryEscape(email)))
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
 	http.Redirect(w, r, fmt.Sprintf("/verify?email=%s", url.QueryEscape(email)), http.StatusSeeOther)
 }
 
@@ -71,19 +45,10 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	sessionID, err := h.DB.Login(ctx, email, password)
 	if err != nil {
 		if errors.As(err, &db.ErrorUnverifiedEmail{}) {
-			// For HTMX requests, return a redirect header
-			if r.Header.Get("HX-Request") == "true" {
-				w.Header().Set("HX-Redirect", fmt.Sprintf("/verify?email=%s", url.QueryEscape(email)))
-				w.WriteHeader(http.StatusOK)
-				return
-			}
 			http.Redirect(w, r, fmt.Sprintf("/verify?email=%s", url.QueryEscape(email)), http.StatusSeeOther)
 			return
 		}
 
-		// Return HTMX response with error
-		w.Header().Set("HX-Retarget", "#login-form")
-		w.Header().Set("HX-Reswap", "innerHTML")
 		http.Error(w, "Invalid credentials", http.StatusBadRequest)
 		return
 	}
@@ -97,17 +62,10 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   60 * 60 * 24 * 30, // 30 days
 	})
 
-	// For HTMX requests, return a redirect header
-	if r.Header.Get("HX-Request") == "true" {
-		w.Header().Set("HX-Redirect", "/")
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-func (h *Handler) isLoggedIn(r *http.Request) bool {
+func (h *Handler) IsLoggedIn(r *http.Request) bool {
 	cookie, err := r.Cookie("session_id")
 	if err != nil {
 		return false

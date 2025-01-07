@@ -3,10 +3,8 @@ package components
 
 templ RegisterForm() {
 	<form
-		id="register-form"
-		hx-post="/register"
-		hx-target="#auth-form-container"
-		hx-swap="innerHTML"
+		method="POST"
+		action="/register"
 		class="bg-white p-8 rounded-lg shadow space-y-6"
 	>
 		<div>
@@ -50,10 +48,8 @@ templ RegisterPage() {
 
 templ LoginForm() {
 	<form
-		id="login-form"
-		hx-post="/login"
-		hx-target="#auth-form-container"
-		hx-swap="innerHTML"
+		method="POST"
+		action="/login"
 		class="bg-white p-8 rounded-lg shadow space-y-6"
 	>
 		<div>
@@ -84,43 +80,27 @@ templ LoginForm() {
 	</form>
 }
 
+func loginClass(isLoginPage bool) string {
+	if isLoginPage {
+		return "text-xl font-bold px-4 py-2 rounded bg-blue-600 text-white"
+	}
+	return "text-xl font-bold px-4 py-2 rounded text-gray-700 hover:bg-gray-100"
+}
+
 templ AuthTabs(formType string) {
 	<div class="flex justify-center gap-4 mb-8">
-		if formType == "login" {
-			<button
-				hx-get="/auth?form=login"
-				hx-target="#auth-form-content"
-				hx-swap="innerHTML"
-				class="text-xl font-bold px-4 py-2 rounded bg-blue-600 text-white"
-			>
-				Log In
-			</button>
-			<button
-				hx-get="/auth?form=register"
-				hx-target="#auth-form-content"
-				hx-swap="innerHTML"
-				class="text-xl font-bold px-4 py-2 rounded text-gray-700 hover:bg-gray-100"
-			>
-				Register
-			</button>
-		} else {
-			<button
-				hx-get="/auth?form=login"
-				hx-target="#auth-form-content"
-				hx-swap="innerHTML"
-				class="text-xl font-bold px-4 py-2 rounded text-gray-700 hover:bg-gray-100"
-			>
-				Log In
-			</button>
-			<button
-				hx-get="/auth?form=register"
-				hx-target="#auth-form-content"
-				hx-swap="innerHTML"
-				class="text-xl font-bold px-4 py-2 rounded bg-blue-600 text-white"
-			>
-				Register
-			</button>
-		}
+		<a
+			href="/login"
+			class={ loginClass(formType == "login") }
+		>
+			Log In
+		</a>
+		<a
+			href="/register"
+			class={ loginClass(formType == "register") }
+		>
+			Register
+		</a>
 	</div>
 }
 
@@ -140,9 +120,7 @@ templ AuthPage(formType string) {
 			<div class="max-w-md mx-auto">
 				@AuthTabs(formType)
 				<div id="auth-form-container">
-					<div id="auth-form-content">
-						@AuthFormContent(formType)
-					</div>
+					@AuthFormContent(formType)
 				</div>
 			</div>
 		</div>
