@@ -36,6 +36,8 @@ type User struct {
 	LastLoginAt         sql.NullTime
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
+	Phone               sql.NullString
+	PhoneVerifiedAt     sql.NullTime
 }
 
 type Verification struct {
