@@ -14,26 +14,23 @@ import (
 	"github.com/google/uuid"
 )
 
-func (h *Handler) AuthPage(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
-}
-
-func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) PasswordLoginPage(w http.ResponseWriter, r *http.Request) {
 	if h.IsLoggedIn(r) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
-	showPasswordLogin := r.URL.Query().Get("password") == "true"
-	component := components.AuthPage("login", showPasswordLogin)
+
+	component := components.PasswordLoginPage()
 	component.Render(r.Context(), w)
 }
 
-func (h *Handler) RegisterPage(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) MagicLoginPage(w http.ResponseWriter, r *http.Request) {
 	if h.IsLoggedIn(r) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
-	component := components.AuthPage("register", false)
+
+	component := components.MagicLoginPage()
 	component.Render(r.Context(), w)
 }
 
@@ -195,7 +192,8 @@ func (h *Handler) VerifyUserEmail(w http.ResponseWriter, r *http.Request) {
 	// Get token from URL query params
 	token := r.URL.Query().Get("token")
 	if token == "" {
-		component := components.VerifyEmailPage("test")
+		email := r.URL.Query().Get("email")
+		component := components.VerifyEmailPage(email)
 		component.Render(ctx, w)
 
 		return

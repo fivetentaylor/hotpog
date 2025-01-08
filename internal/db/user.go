@@ -22,19 +22,19 @@ func (e ErrorEmailExists) Error() string {
 	return "User email already exists"
 }
 
-func (db *DB) CreateUser(ctx context.Context, email, password string) (userID string, err error) {
+func (db *DB) CreateUser(ctx context.Context, email, password string) (user *sqlc.User, err error) {
 	userExists, err := db.Queries.UserEmailExists(ctx, email)
 	if err != nil {
-		return "", stackerr.Wrap(err)
+		return nil, stackerr.Wrap(err)
 	}
 
 	if userExists {
-		return "", stackerr.Wrap(ErrorEmailExists{})
+		return nil, stackerr.Wrap(ErrorEmailExists{})
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return "", stackerr.Wrap(err)
+		return nil, stackerr.Wrap(err)
 	}
 
 	uid, err := db.Queries.CreateUser(ctx, sqlc.CreateUserParams{
@@ -42,8 +42,10 @@ func (db *DB) CreateUser(ctx context.Context, email, password string) (userID st
 		PasswordHash: sql.NullString{String: string(hash), Valid: true},
 	})
 	if err != nil {
-		return "", stackerr.Wrap(err)
+		return nil, stackerr.Wrap(err)
 	}
+
+	url, err := db.SendMagicLink(ctx, *uid)
 
 	url, err := db._createVerificationURL(ctx, uid)
 	if err != nil {
@@ -64,7 +66,7 @@ func (e ErrorUnverifiedEmail) Error() string {
 
 func (db *DB) Login(ctx context.Context, email, password string) (sessionID string, err error) {
 	user, err := db.Queries.GetUserByEmail(ctx, email)
-	if user.PasswordHash.Valid == false {
+	if !user.PasswordHash.Valid {
 		return "", stackerr.Errorf("Invalid credentials")
 	}
 
@@ -76,7 +78,7 @@ func (db *DB) Login(ctx context.Context, email, password string) (sessionID stri
 		return "", stackerr.Errorf("Invalid credentials")
 	}
 
-	if user.EmailVerifiedAt.Valid == false {
+	if !user.EmailVerifiedAt.Valid {
 		url, err := db._createVerificationURL(ctx, user.ID)
 		if err != nil {
 			return "", stackerr.Wrap(err)
@@ -108,7 +110,7 @@ func (db *DB) Register(ctx context.Context, email, password string) (userID stri
 		return "", stackerr.Wrap(err)
 	}
 
-	url, err := db._createVerificationURL(ctx, uid)
+	url, err := db.SendMagicLink(ctx, email)
 	if err != nil {
 		return "", stackerr.Wrap(err)
 	}
@@ -142,7 +144,7 @@ func (db *DB) VerifyUserEmail(ctx context.Context, token string) (sessionID stri
 
 	qtx := db.Queries.WithTx(tx)
 
-	verification, err := qtx.GetAndUseVerification(ctx, token)
+	verification, err := qtx.GetAndUseMagicLink(ctx, token)
 	if err != nil {
 		return "", stackerr.Wrap(err)
 	}
@@ -166,21 +168,27 @@ func (db *DB) VerifyUserEmail(ctx context.Context, token string) (sessionID stri
 	return sessionID, nil
 }
 
-func (db *DB) _createVerificationURL(ctx context.Context, userID uuid.UUID) (string, error) {
-	bytes := make([]byte, 32)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", fmt.Errorf("failed to generate random token: %w", err)
-	}
-	token := hex.EncodeToString(bytes)
+func (db *DB) SendMagicLink(ctx context.Context, user sqlc.User) (string, error) {
+	// Generate a magic link token
+	token := uuid.New().String()
+	expiresAt := time.Now().Add(15 * time.Minute) // Links expire after 15 minutes
 
-	_, err := db.Queries.CreateVerification(ctx, sqlc.CreateVerificationParams{
+	_, err := db.Queries.CreateMagicLink(ctx, sqlc.CreateMagicLinkParams{
 		Token:     token,
-		ExpiresAt: time.Now().Add(24 * time.Hour),
-		UserID:    userID,
+		ExpiresAt: expiresAt,
+		UserID:    user.ID,
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to create verification record: %w", err)
+		return "", stackerr.Wrap(err)
 	}
 
-	return fmt.Sprintf("https://%s%s/verify?token=%s", config.Get().Domain, config.Get().Port, token), nil
+	// Print the magic link to console (for now)
+	var magicLink string
+	if user.EmailVerifiedAt.Valid {
+		magicLink = fmt.Sprintf("https://%s%s/login?token=%s", config.Get().Domain, config.Get().Port, token)
+	} else {
+		magicLink = fmt.Sprintf("https://%s%s/verify?token=%s", config.Get().Domain, config.Get().Port, token)
+	}
+
+	return magicLink, nil
 }
