@@ -45,7 +45,7 @@ func TestLogin(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		// Call the handler
-		h.Login(w, req)
+		h.LoginPassword(w, req)
 
 		// Get the result
 		res := w.Result()

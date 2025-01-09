@@ -1,7 +1,7 @@
 include .dev.env
 export
 
-.PHONY: setup dev certs dev_up dev_down test_up test_down gen_templ gen_sqlc gen_tailwind gen migrate_up migrate_down migrate_create
+.PHONY: setup dev certs dev_up dev_down test_up test_down gen_templ gen_sqlc gen_tailwind gen migrate_up migrate_down migrate_create migrate_force
 
 setup:
 	go mod tidy
@@ -51,3 +51,6 @@ migrate_down:
 
 migrate_create:
 	migrate create -ext sql -dir internal/db/migrations -seq $(name)
+
+migrate_force:
+	migrate -database "${DATABASE_URL}" -path internal/db/migrations force $(version)

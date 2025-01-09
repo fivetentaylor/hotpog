@@ -73,7 +73,7 @@ func (q *Queries) CreateSession(ctx context.Context, userID uuid.UUID) (uuid.UUI
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, password_hash)
 VALUES ($1, $2)
-RETURNING id
+RETURNING id, email, password_hash, email_verified_at, failed_login_attempts, last_login_at, created_at, updated_at, phone, phone_verified_at
 `
 
 type CreateUserParams struct {
@@ -81,11 +81,22 @@ type CreateUserParams struct {
 	PasswordHash sql.NullString
 }
 
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (uuid.UUID, error) {
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
 	row := q.db.QueryRowContext(ctx, createUser, arg.Email, arg.PasswordHash)
-	var id uuid.UUID
-	err := row.Scan(&id)
-	return id, err
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.EmailVerifiedAt,
+		&i.FailedLoginAttempts,
+		&i.LastLoginAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
+	)
+	return i, err
 }
 
 const createVerification = `-- name: CreateVerification :one
@@ -193,21 +204,26 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (GetUserRow, error)
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, password_hash, email_verified_at
+SELECT id, email, password_hash, email_verified_at, failed_login_attempts, last_login_at, created_at, updated_at, phone, phone_verified_at
 FROM users
 WHERE email = $1
 `
 
-type GetUserByEmailRow struct {
-	ID              uuid.UUID
-	PasswordHash    sql.NullString
-	EmailVerifiedAt sql.NullTime
-}
-
-func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error) {
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
 	row := q.db.QueryRowContext(ctx, getUserByEmail, email)
-	var i GetUserByEmailRow
-	err := row.Scan(&i.ID, &i.PasswordHash, &i.EmailVerifiedAt)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.EmailVerifiedAt,
+		&i.FailedLoginAttempts,
+		&i.LastLoginAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
+	)
 	return i, err
 }
 
@@ -244,6 +260,20 @@ SELECT EXISTS (
 
 func (q *Queries) UserEmailExists(ctx context.Context, email string) (bool, error) {
 	row := q.db.QueryRowContext(ctx, userEmailExists, email)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const userExists = `-- name: UserExists :one
+SELECT EXISTS (
+    SELECT 1 FROM users
+    WHERE id = $1
+)
+`
+
+func (q *Queries) UserExists(ctx context.Context, id uuid.UUID) (bool, error) {
+	row := q.db.QueryRowContext(ctx, userExists, id)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err

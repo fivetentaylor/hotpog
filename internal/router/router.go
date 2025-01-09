@@ -24,15 +24,14 @@ func NewRouter(config *config.Config) *http.ServeMux {
 
 	// routes
 	mux.HandleFunc("GET /login/password", handler.PasswordLoginPage)
-	mux.HandleFunc("POST /login/password", handler.Login)
+	mux.HandleFunc("POST /login/password", handler.LoginPassword)
+
+	mux.HandleFunc("POST /login/magic", handler.SendMagicLink)
+	mux.HandleFunc("GET /login/magic", handler.UseMagicLink)
 
 	mux.HandleFunc("GET /login", handler.MagicLoginPage)
-	mux.HandleFunc("POST /login/magic", handler.SendMagicLink)
-
-	mux.HandleFunc("POST /login", handler.Login)
 	mux.HandleFunc("GET /logout", handler.Logout)
 	mux.HandleFunc("GET /verify", handler.VerifyUserEmail)
-	mux.Handle("POST /verify", handler.RequireAuth(http.HandlerFunc(handler.VerifyUserEmail)))
 
 	// Serve static files
 	staticFS, err := fs.Sub(static, "static")

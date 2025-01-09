@@ -16,6 +16,7 @@ type Config struct {
 	CertPath  string `env:"CERT_PATH" required:"true"`
 	KeyPath   string `env:"KEY_PATH" required:"true"`
 	TestEmpty string `env:"TEST_EMPTY"`
+	Env       string `env:"ENV" default:"dev"`
 }
 
 var config *Config

@@ -11,10 +11,10 @@ WHERE s.id = $1
 -- name: CreateUser :one
 INSERT INTO users (email, password_hash)
 VALUES ($1, $2)
-RETURNING *;
+RETURNING id, email, password_hash, email_verified_at, failed_login_attempts, last_login_at, created_at, updated_at, phone, phone_verified_at;
 
 -- name: GetUserByEmail :one
-SELECT id, password_hash, email_verified_at
+SELECT *
 FROM users
 WHERE email = $1;
 
@@ -68,6 +68,12 @@ WHERE token = $1
     AND used_at IS NULL 
     AND expires_at > CURRENT_TIMESTAMP
 RETURNING *;
+
+-- name: UserExists :one
+SELECT EXISTS (
+    SELECT 1 FROM users
+    WHERE id = $1
+);
 
 -- name: UserEmailExists :one
 SELECT EXISTS (

@@ -2,9 +2,7 @@ package db
 
 import (
 	"context"
-	"crypto/rand"
 	"database/sql"
-	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -22,40 +20,38 @@ func (e ErrorEmailExists) Error() string {
 	return "User email already exists"
 }
 
-func (db *DB) CreateUser(ctx context.Context, email, password string) (user *sqlc.User, err error) {
+func (db *DB) CreateUser(ctx context.Context, email, password string) (user sqlc.User, err error) {
 	userExists, err := db.Queries.UserEmailExists(ctx, email)
 	if err != nil {
-		return nil, stackerr.Wrap(err)
+		return user, stackerr.Wrap(err)
 	}
 
 	if userExists {
-		return nil, stackerr.Wrap(ErrorEmailExists{})
+		return user, stackerr.Wrap(ErrorEmailExists{})
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, stackerr.Wrap(err)
+		return user, stackerr.Wrap(err)
 	}
 
-	uid, err := db.Queries.CreateUser(ctx, sqlc.CreateUserParams{
+	user, err = db.Queries.CreateUser(ctx, sqlc.CreateUserParams{
 		Email:        email,
 		PasswordHash: sql.NullString{String: string(hash), Valid: true},
 	})
 	if err != nil {
-		return nil, stackerr.Wrap(err)
+		return user, stackerr.Wrap(err)
 	}
 
-	url, err := db.SendMagicLink(ctx, *uid)
-
-	url, err := db._createVerificationURL(ctx, uid)
+	url, err := db.SendMagicLink(ctx, user)
 	if err != nil {
-		return "", stackerr.Wrap(err)
+		return user, stackerr.Wrap(err)
 	}
 
 	// Send the email or text message here, probably async?
 	fmt.Printf("Verification URL: %s\n", url)
 
-	return uid.String(), nil
+	return user, nil
 }
 
 type ErrorUnverifiedEmail struct{}
@@ -64,22 +60,35 @@ func (e ErrorUnverifiedEmail) Error() string {
 	return "Email is unverified"
 }
 
-func (db *DB) Login(ctx context.Context, email, password string) (sessionID string, err error) {
-	user, err := db.Queries.GetUserByEmail(ctx, email)
-	if !user.PasswordHash.Valid {
-		return "", stackerr.Errorf("Invalid credentials")
-	}
-
+func (db *DB) LoginPassword(ctx context.Context, email, password string) (sessionID string, err error) {
+	userExists, err := db.Queries.UserEmailExists(ctx, email)
 	if err != nil {
 		return "", stackerr.Wrap(err)
 	}
 
-	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash.String), []byte(password)) != nil {
-		return "", stackerr.Errorf("Invalid credentials")
+	var user sqlc.User
+	if !userExists {
+		user, err = db.CreateUser(ctx, email, password)
+		if err != nil {
+			return "", stackerr.Wrap(err)
+		}
+	} else {
+		user, err = db.Queries.GetUserByEmail(ctx, email)
+		if err != nil {
+			return "", stackerr.Wrap(err)
+		}
+
+		if !user.PasswordHash.Valid {
+			return "", stackerr.Errorf("Invalid credentials")
+		}
+
+		if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash.String), []byte(password)) != nil {
+			return "", stackerr.Errorf("Invalid credentials")
+		}
 	}
 
 	if !user.EmailVerifiedAt.Valid {
-		url, err := db._createVerificationURL(ctx, user.ID)
+		url, err := db.SendMagicLink(ctx, user)
 		if err != nil {
 			return "", stackerr.Wrap(err)
 		}
@@ -99,26 +108,31 @@ func (db *DB) Login(ctx context.Context, email, password string) (sessionID stri
 	return sessionID, nil
 }
 
-func (db *DB) Register(ctx context.Context, email, password string) (userID string, err error) {
-	userID, err = db.CreateUser(ctx, email, password)
+func (db *DB) LoginMagicLink(ctx context.Context, email string) (url string, err error) {
+	userExists, err := db.Queries.UserEmailExists(ctx, email)
 	if err != nil {
 		return "", stackerr.Wrap(err)
 	}
 
-	uid, err := uuid.Parse(userID)
+	var user sqlc.User
+	if userExists {
+		user, err = db.Queries.GetUserByEmail(ctx, email)
+		if err != nil {
+			return "", stackerr.Wrap(err)
+		}
+	} else {
+		user, err = db.CreateUser(ctx, email, "")
+		if err != nil {
+			return "", stackerr.Wrap(err)
+		}
+	}
+
+	url, err = db.SendMagicLink(ctx, user)
 	if err != nil {
 		return "", stackerr.Wrap(err)
 	}
 
-	url, err := db.SendMagicLink(ctx, email)
-	if err != nil {
-		return "", stackerr.Wrap(err)
-	}
-
-	// Send the email or text message here, probably async?
-	fmt.Printf("Verification URL: %s\n", url)
-
-	return userID, nil
+	return url, nil
 }
 
 func (db *DB) DeleteSession(ctx context.Context, sessionID string) error {
@@ -163,9 +177,7 @@ func (db *DB) VerifyUserEmail(ctx context.Context, token string) (sessionID stri
 		return "", stackerr.Wrap(err)
 	}
 
-	sessionID = sid.String()
-
-	return sessionID, nil
+	return sid.String(), nil
 }
 
 func (db *DB) SendMagicLink(ctx context.Context, user sqlc.User) (string, error) {
@@ -185,10 +197,36 @@ func (db *DB) SendMagicLink(ctx context.Context, user sqlc.User) (string, error)
 	// Print the magic link to console (for now)
 	var magicLink string
 	if user.EmailVerifiedAt.Valid {
-		magicLink = fmt.Sprintf("https://%s%s/login?token=%s", config.Get().Domain, config.Get().Port, token)
+		magicLink = fmt.Sprintf("https://%s%s/login/magic?token=%s", config.Get().Domain, config.Get().Port, token)
 	} else {
 		magicLink = fmt.Sprintf("https://%s%s/verify?token=%s", config.Get().Domain, config.Get().Port, token)
 	}
 
 	return magicLink, nil
+}
+
+func (db *DB) UseMagicLink(ctx context.Context, token string) (sessionID string, err error) {
+	tx, err := db.Raw.BeginTx(ctx, nil)
+	if err != nil {
+		return "", stackerr.Wrap(err)
+	}
+	defer tx.Rollback()
+
+	qtx := db.Queries.WithTx(tx)
+
+	result, err := qtx.GetAndUseMagicLink(ctx, token)
+	if err != nil {
+		return "", stackerr.Wrap(err)
+	}
+
+	sid, err := qtx.CreateSession(ctx, result.UserID)
+	if err != nil {
+		return "", stackerr.Wrap(err)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return "", stackerr.Wrap(err)
+	}
+
+	return sid.String(), nil
 }
